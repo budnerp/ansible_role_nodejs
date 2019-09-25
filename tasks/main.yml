@@ -1,0 +1,47 @@
+---
+  - name: NODEJS - check if Node.js was installed before
+    stat:
+      path: /usr/local/lib/nodejs/node-{{nodejs_version}}-{{nodejs_distro}}
+    register: nodejs_install
+
+  - name: NODEJS - create /usr/local/lib/nodejs folder
+    file:
+      path: /usr/local/lib/nodejs
+      state: directory
+      owner: root
+      group: root
+      mode: 0655
+    when: nodejs_install.stat.exists == false
+
+  - name: NODEJS - download and unarchive a {{nodejs_version}}/node-{{nodejs_version}}-{{nodejs_distro}}.tar.gz
+    unarchive:
+      src: 'https://nodejs.org/dist/{{nodejs_version}}/node-{{nodejs_version}}-{{nodejs_distro}}.tar.gz'
+      dest: '/usr/local/lib/nodejs'
+      owner: root
+      group: root
+      remote_src: yes
+    register: nodejs_unarchive_result
+    when: nodejs_install_from_tarball == "1" and nodejs_install.stat.exists == false
+
+  - name: NODEJS - append Node.js lib folder to $PATH
+    copy:
+      dest: /etc/profile.d/nodejs.sh
+      content: 'export PATH=/usr/local/lib/nodejs/node-{{nodejs_version}}-{{nodejs_distro}}/bin:$PATH'
+      mode: 0755
+  - shell: ". /etc/profile.d/nodejs.sh"
+
+  - name: NODEJS - Create a symbolic links to Node.js binaries
+    file:
+      src: '{{item.dest}}'
+      dest: '{{item.linkname}}'
+      owner: root
+      group: root
+      mode: 0755
+      state: link
+    with_items:
+      - { dest: '/usr/local/lib/nodejs/node-{{nodejs_version}}-{{nodejs_distro}}/bin/node', linkname: '/usr/bin/node' }
+      - { dest: '/usr/local/lib/nodejs/node-{{nodejs_version}}-{{nodejs_distro}}/bin/npm', linkname: '/usr/bin/npm' }
+      - { dest: '/usr/local/lib/nodejs/node-{{nodejs_version}}-{{nodejs_distro}}/bin/npx', linkname: '/usr/bin/npx' }
+
+#  - debug:
+#      var: nodejs_install
